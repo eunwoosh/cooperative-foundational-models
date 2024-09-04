@@ -3,6 +3,7 @@ import sys
 import warnings
 import json
 import argparse
+import time
 
 proj_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 sys.path.append(proj_path)
@@ -38,6 +39,8 @@ from detectron2.evaluation import print_csv_format
 from datasets.register_lvis_val_subset import lvis_meta_val_subset # to register the custom lvis_v1_val_subset dataset.
 from segment_anything.utils.transforms import ResizeLongestSide
 from tqdm import tqdm
+
+from nod_model import NOD
 
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -96,10 +99,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Inference on a single image")
     parser.add_argument("--image_path", type=str, help="Path to the image", required=True, default=None)
     args = parser.parse_args()
-    image_path = args.image_path
+    image_path = Path(args.image_path)
 
     model, text_prompt_list, param_dict = setup(outputs_dir, gdino_checkpoint, cfg_file, rcnn_weight_dir, sam_checkpoint, class_len_per_prompt)
 
-    inference_single_image(model, image_path, text_prompt_list, param_dict)
-    print(f"Results saved in {outputs_dir}")
+    text_prompt_list=["license plate ."]
+    confidence_threshold = 0.2
 
+    nod_modle = NOD(param_dict, model)
+
+    start_time = time.perf_counter()
+    if image_path.is_dir():
+        output = nod_modle.infer_multiple_images(
+            image_path,
+            out_dir=outputs_dir,
+            text_prompt_list=text_prompt_list,
+            confidence_threshold=confidence_threshold,
+        )
+    else:
+        output = nod_modle.infer(
+            str(image_path),
+            out_dir=outputs_dir,
+            text_prompt_list=text_prompt_list,
+            confidence_threshold=confidence_threshold,
+        )
+    print(f"elpased time : {time.perf_counter() - start_time}")
